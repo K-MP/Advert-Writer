@@ -38,6 +38,10 @@
   aside input::placeholder { color: #888; }
   aside button { background: #1c1c1b; border-color: #3a3a38; color: #fff; font-size: 13px; }
   aside button:hover { border-color: var(--lime); color: var(--lime); }
+  #connStatus:empty { display: none; }
+  #connStatus { margin: 12px 16px 0; padding: 10px 12px; border-radius: 10px; font-size: 12px; line-height: 1.45; background: #1c1c1b; border-left: 4px solid var(--lime); color: #ddd; white-space: pre-wrap; word-break: break-word; }
+  #connStatus.bad { border-left-color: var(--err); }
+  #connStatus b { color: #fff; }
   .stock-list { overflow-y: auto; flex: 1; padding: 8px; }
   .bike-item { display: flex; gap: 12px; padding: 11px 12px; border-radius: 12px; cursor: pointer; align-items: center; margin-bottom: 4px; }
   .bike-item:hover { background: #323231; }
@@ -109,6 +113,7 @@
         <button id="manualBtn" style="flex:1">+ Add manually</button>
       </div>
     </div>
+    <div id="connStatus"></div>
     <div class="stock-list" id="stockList"></div>
   </aside>
 
@@ -250,17 +255,28 @@ async function api(path, opts = {}) {
 // ---------- Stock ----------
 async function loadStock() {
   $('modeTag').textContent = 'Connecting…'; $('modeTag').className = 'tag';
+  const box = $('connStatus'); box.className = ''; box.textContent = 'Connecting to MotorDesk…';
   try {
     const { bikes } = await api('stock');
     stock = bikes;
     $('modeTag').textContent = `Live · ${bikes.length} bikes from MotorDesk`; $('modeTag').className = 'tag live';
+    box.textContent = '';
   } catch (e) {
     stock = DEMO_STOCK;
-    $('modeTag').textContent = e.status === 401 ? 'Password needed – see Settings' : 'Demo mode – MotorDesk not connected';
-    $('modeTag').className = 'tag demo';
-    $('modeTag').title = (e.message || '') + (e.body?.details ? '\n' + JSON.stringify(e.body.details).slice(0, 300) : '');
+    $('modeTag').textContent = 'Demo mode'; $('modeTag').className = 'tag demo';
+    box.className = 'bad';
+    box.innerHTML = '<b>Not connected – showing demo bikes.</b>\n' + esc(explain(e));
   }
   renderList();
+}
+
+function explain(e) {
+  const d = e.body?.details ? JSON.stringify(e.body.details).slice(0, 300) : '';
+  if (e.status === 401 && /password/i.test(e.message)) return 'The app password doesn\'t match APP_PASSWORD in Netlify. Re-enter it in Settings (it\'s case-sensitive).';
+  if (/MOTORDESK_API_KEY is not set/.test(e.message)) return 'MOTORDESK_API_KEY isn\'t set in Netlify. Add it under Environment variables, then Trigger deploy.';
+  if (e.status === 404) return 'The server functions weren\'t found. Check the netlify/functions folder is in the GitHub repo, then redeploy.';
+  if (/MotorDesk returned 401|MotorDesk returned 403/.test(e.message)) return 'MotorDesk rejected the API key. Check it was copied fully (key_id.secret) and has vehicles read access.\n' + d;
+  return e.message + (d ? '\n' + d : '');
 }
 
 function allBikes() { return [...manual.map((b) => ({ ...b, manual: true })), ...stock]; }
@@ -393,10 +409,9 @@ const SKEYS = ['password', 'dealerName', 'location', 'phone', 'website', 'usps']
 $('settingsBtn').onclick = () => { SKEYS.forEach((k) => $('s_' + k).value = settings[k] || ''); $('debugOut').hidden = true; $('settingsDlg').showModal(); };
 $('settingsCancel').onclick = () => $('settingsDlg').close();
 $('settingsSave').onclick = () => {
-  const pwChanged = $('s_password').value !== settings.password;
   SKEYS.forEach((k) => settings[k] = $('s_' + k).value.trim());
   store.set('settings', settings); $('settingsDlg').close();
-  if (pwChanged) loadStock();
+  loadStock();
 };
 $('debugBtn').onclick = async () => {
   const out = $('debugOut'); out.hidden = false; out.textContent = 'Loading…';
