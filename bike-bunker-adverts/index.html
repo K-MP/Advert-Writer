@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bike Bunker Advert Writer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --lime: #d3ff74; --lime-dark: #b9e650; --char: #282827; --black: #0b0b0b;
+    --bg: #ededed; --panel: #ffffff; --ink: #111111; --muted: #6f6f6c; --line: #e2e2df;
+    --ok: #d3ff74; --err: #ff5d5d;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Poppins, system-ui, sans-serif; font-weight: 300; background: var(--bg); color: var(--ink); font-size: 14px; }
+  b, strong { font-weight: 600; }
+  header { display: flex; align-items: center; gap: 18px; padding: 14px 26px; background: var(--black); color: #fff; }
+  header h1 { font-size: 15px; font-weight: 600; letter-spacing: 6px; margin: 0; text-transform: uppercase; display: flex; align-items: center; gap: 12px; }
+  header h1 .mark { width: 10px; height: 26px; background: var(--lime); border-radius: 2px; }
+  header h1 span.accent { color: var(--lime); }
+  header .spacer { flex: 1; }
+  header .tag { font-size: 11px; font-weight: 500; padding: 5px 12px; border-radius: 999px; background: #222; color: #bbb; }
+  header .tag.live { background: var(--lime); color: var(--black); }
+  header .tag.demo { background: #333; color: var(--lime); border: 1px solid var(--lime); }
+  button { font: inherit; font-weight: 500; cursor: pointer; border-radius: 10px; border: 1px solid var(--line); background: #fff; color: var(--ink); padding: 9px 16px; transition: .15s; }
+  button:hover { border-color: var(--char); }
+  button.primary { background: var(--lime); color: var(--black); border-color: var(--lime); font-weight: 600; }
+  button.primary:hover { background: var(--lime-dark); border-color: var(--lime-dark); }
+  button.primary:disabled { opacity: .6; cursor: wait; }
+  button.ghost-dark { background: transparent; color: #fff; border-color: #444; }
+  button.ghost-dark:hover { border-color: var(--lime); color: var(--lime); }
+  .app { display: grid; grid-template-columns: 330px 1fr; height: calc(100vh - 58px); }
+  aside { background: var(--char); color: #fff; display: flex; flex-direction: column; min-height: 0; }
+  .aside-top { padding: 16px; display: grid; gap: 10px; border-bottom: 1px solid #3a3a38; }
+  .aside-top .row { display: flex; gap: 8px; }
+  aside input { background: #1c1c1b; border-color: #3a3a38; color: #fff; }
+  aside input::placeholder { color: #888; }
+  aside button { background: #1c1c1b; border-color: #3a3a38; color: #fff; font-size: 13px; }
+  aside button:hover { border-color: var(--lime); color: var(--lime); }
+  .stock-list { overflow-y: auto; flex: 1; padding: 8px; }
+  .bike-item { display: flex; gap: 12px; padding: 11px 12px; border-radius: 12px; cursor: pointer; align-items: center; margin-bottom: 4px; }
+  .bike-item:hover { background: #323231; }
+  .bike-item.active { background: #1c1c1b; box-shadow: inset 4px 0 0 var(--lime); }
+  .thumb { width: 54px; height: 40px; border-radius: 8px; background: #3a3a38 center/cover; flex-shrink: 0; display: grid; place-items: center; color: #777; font-size: 18px; }
+  .bike-item .t { font-weight: 600; font-size: 13px; line-height: 1.3; }
+  .bike-item .s { color: #aaa; font-size: 12px; margin-top: 3px; }
+  .plate { display: inline-block; font-weight: 600; background: #f7d117; color: #111; padding: 0 6px; border-radius: 3px; letter-spacing: 1px; font-size: 11px; }
+  .badge { margin-left: auto; font-size: 10px; font-weight: 600; color: var(--black); background: var(--lime); padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+  main { overflow-y: auto; padding: 28px 32px; }
+  .empty { color: var(--muted); text-align: center; margin-top: 15vh; }
+  .empty .bigmark { width: 16px; height: 48px; background: var(--lime); border-radius: 3px; margin: 0 auto 18px; }
+  .card { background: var(--panel); border-radius: 16px; padding: 22px 24px; margin-bottom: 20px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+  .card h2 { font-size: 18px; font-weight: 600; margin: 0 0 18px; display: flex; align-items: center; gap: 12px; }
+  .card h2::before { content: ''; width: 4px; height: 22px; background: var(--lime); border-radius: 2px; }
+  .card h2 .num { color: var(--char); font-weight: 600; margin-right: -4px; order: -1; }
+  .card h2 small { font-weight: 300; color: var(--muted); font-size: 12px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px 16px; }
+  .grid.wide { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); align-items: start; }
+  label { display: grid; gap: 6px; font-size: 12px; font-weight: 500; color: var(--char); }
+  input, select, textarea { font: inherit; font-weight: 400; color: var(--ink); padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; background: #f6f6f6; width: 100%; }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--lime-dark); outline-offset: -1px; border-color: transparent; background: #fff; }
+  textarea { resize: vertical; min-height: 74px; line-height: 1.5; }
+  .full { grid-column: 1 / -1; }
+  .hint { font-weight: 300; color: #999; }
+  .actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .actions .grow { flex: 1; }
+  .card.dark { background: var(--char); color: #fff; }
+  .card.dark label { color: #ddd; }
+  .card.dark input, .card.dark select { background: #1c1c1b; border-color: #3a3a38; color: #fff; }
+  .out { border-radius: 14px; margin-bottom: 16px; overflow: hidden; border: 1px solid var(--line); }
+  .out-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--lime); }
+  .out-head b { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; color: var(--black); }
+  .out-head .count { font-size: 12px; color: #33401a; font-weight: 500; }
+  .out-head .count.bad { color: #b00000; font-weight: 700; }
+  .out-head .grow { flex: 1; }
+  .out-head button { background: var(--black); color: var(--lime); border-color: var(--black); padding: 6px 14px; font-size: 12px; }
+  .out textarea { border: 0; border-radius: 0; min-height: 60px; background: #fff; }
+  .out textarea:focus { outline: none; }
+  .copied { background: #fff !important; color: var(--black) !important; }
+  .error { background: #fff0f0; border-left: 4px solid var(--err); color: #7a1010; padding: 12px 14px; border-radius: 10px; margin-bottom: 16px; white-space: pre-wrap; }
+  .info { background: #f6ffe0; border-left: 4px solid var(--lime-dark); color: #3a4a10; padding: 12px 14px; border-radius: 10px; margin-bottom: 16px; }
+  dialog { border: 0; border-radius: 16px; padding: 0; width: min(560px, 92vw); box-shadow: 0 20px 60px rgba(0,0,0,.35); font-family: Poppins, sans-serif; }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  dialog .body { padding: 22px 24px; display: grid; gap: 12px; }
+  dialog h3 { margin: 0 0 4px; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+  dialog h3::before { content: ''; width: 4px; height: 20px; background: var(--lime); border-radius: 2px; }
+  dialog .foot { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 24px; background: #f6f6f6; }
+  pre.debug { max-height: 300px; overflow: auto; background: var(--black); color: var(--lime); padding: 12px; border-radius: 10px; font-size: 11px; }
+  .spinner { width: 14px; height: 14px; border: 2px solid rgba(0,0,0,.25); border-top-color: var(--black); border-radius: 50%; display: inline-block; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (max-width: 800px) { .app { grid-template-columns: 1fr; height: auto; } aside { max-height: 45vh; } }
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="mark"></span>Bike Bunker <span class="accent">Advert Writer</span></h1>
+  <span id="modeTag" class="tag">Connecting…</span>
+  <div class="spacer"></div>
+  <button class="ghost-dark" id="settingsBtn">Settings</button>
+</header>
+
+<div class="app">
+  <aside>
+    <div class="aside-top">
+      <input id="search" placeholder="Search reg, make or model…">
+      <div class="row">
+        <button id="refreshBtn" style="flex:1">↻ Refresh stock</button>
+        <button id="manualBtn" style="flex:1">+ Add manually</button>
+      </div>
+    </div>
+    <div class="stock-list" id="stockList"></div>
+  </aside>
+
+  <main id="main">
+    <div class="empty" id="emptyState">
+      <div class="bigmark"></div>
+      <p>Pick a bike from your stock on the left to start its advert.</p>
+    </div>
+    <div id="editor" hidden>
+      <div id="banner"></div>
+
+      <div class="card">
+        <h2><span class="num">1</span>Bike basics <small>from MotorDesk – edit if anything's wrong</small></h2>
+        <div class="grid" id="basics"></div>
+      </div>
+
+      <div class="card">
+        <h2><span class="num">2</span>Key details</h2>
+        <div class="grid" id="dropdowns"></div>
+      </div>
+
+      <div class="card">
+        <h2><span class="num">3</span>What makes this bike special</h2>
+        <div class="grid wide">
+          <label>Key features &amp; extras <span class="hint">one per line – heated grips, quickshifter, panniers…</span>
+            <textarea data-d="features" rows="4"></textarea></label>
+          <label>Modifications &amp; upgrades <span class="hint">exhaust, tail tidy, OEM parts included?</span>
+            <textarea data-d="mods" rows="4"></textarea></label>
+          <label>Marks, wear or known issues <span class="hint">honest = more trust</span>
+            <textarea data-d="marks" rows="3"></textarea></label>
+          <label>Anything else <span class="hint">story, recent work, why it's great</span>
+            <textarea data-d="notes" rows="3"></textarea></label>
+        </div>
+      </div>
+
+      <div class="card dark">
+        <div class="actions">
+          <label style="width:200px">Tone
+            <select data-d="tone">
+              <option value="enthusiastic">Enthusiastic</option>
+              <option value="professional">Professional</option>
+              <option value="punchy">Short &amp; punchy</option>
+            </select>
+          </label>
+          <label class="grow">Extra instructions <span class="hint">optional – e.g. "mention it's ideal for a first big bike"</span>
+            <input id="tweak">
+          </label>
+          <button class="primary" id="genBtn" style="align-self:end;padding:10px 22px">Write adverts</button>
+        </div>
+      </div>
+
+      <div class="card" id="results" hidden>
+        <h2><span class="num">4</span>Your adverts <small>edit here if you like, then copy into MotorDesk</small></h2>
+        <div id="outputs"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<dialog id="settingsDlg">
+  <div class="body">
+    <h3>Settings</h3>
+    <label>App password <span class="hint">only if you set APP_PASSWORD in Netlify</span>
+      <input id="s_password" type="password"></label>
+    <label>Dealer name <input id="s_dealerName"></label>
+    <label>Location <input id="s_location"></label>
+    <label>Phone <span class="hint">used in website adverts only</span> <input id="s_phone"></label>
+    <label>Website <input id="s_website"></label>
+    <label>Standard selling points <span class="hint">used in the website advert's "why buy from us"</span>
+      <textarea id="s_usps" rows="3"></textarea></label>
+    <div>
+      <button id="debugBtn" type="button">Show raw MotorDesk data</button>
+      <pre class="debug" id="debugOut" hidden></pre>
+    </div>
+  </div>
+  <div class="foot">
+    <button id="settingsCancel">Cancel</button>
+    <button class="primary" id="settingsSave">Save</button>
+  </div>
+</dialog>
+
+<script>
+// ---------- Field definitions (edit these lists to match your template) ----------
+const BASICS = [
+  ['reg', 'Registration'], ['make', 'Make'], ['model', 'Model'], ['derivative', 'Derivative / trim'],
+  ['year', 'Year'], ['mileage', 'Mileage'], ['owners', 'Previous owners'], ['colour', 'Colour'],
+  ['engine', 'Engine (cc)'], ['price', 'Price (£)'],
+];
+
+const DROPDOWNS = [
+  ['serviceHistory', 'Service history', ['Full dealer service history', 'Full service history (dealer & independent)', 'Part service history', 'Service history from new – receipts', 'No service history']],
+  ['servicedByUs', 'Serviced by us before sale', ['Yes – fresh service before sale', 'Yes – recently serviced', 'No']],
+  ['mot', 'MOT', ['Fresh 12 months MOT', 'Long MOT', 'MOT due soon – new MOT on sale', 'Under 3 years – no MOT needed']],
+  ['keys', 'Keys', ['2 keys', '1 key', '2 keys + master key', '3 keys', 'Keyless – 2 fobs']],
+  ['condition', 'Overall condition', ['Exceptional – like new', 'Excellent', 'Very good', 'Good for age & mileage', 'Fair – some cosmetic marks']],
+  ['tyres', 'Tyres', ['New tyres', 'Excellent tread', 'Good tread', 'Will need tyres soon']],
+  ['paperwork', 'Paperwork', ['V5C, owner\'s manual & service book', 'V5C & service book', 'V5C only', 'V5C, manual, book & receipts folder']],
+  ['hpi', 'HPI / history check', ['HPI clear', 'Not stated']],
+  ['warranty', 'Warranty', ['3 months warranty', '6 months warranty', '12 months warranty', 'Manufacturer warranty remaining', 'None – sold as seen']],
+  ['licence', 'Licence', ['Full A licence', 'A2 compliant', 'A2 restrictable', 'CBT / A1 (125cc)']],
+  ['idealFor', 'Best suited to', ['Commuting', 'Touring', 'Weekend rides', 'Sports / track days', 'New riders', 'Adventure / green lanes', 'All-rounder']],
+];
+
+const DEFAULT_SETTINGS = {
+  password: '', dealerName: 'The Bike Bunker', location: 'Hayling Island, Hampshire', phone: '',
+  website: 'bike-bunker.co.uk', usps: 'Every bike prepared and checked in our own workshop\nPart exchange welcome\nUK delivery available',
+};
+
+const DEMO_STOCK = [
+  { reg: 'GN19ABC', make: 'Yamaha', model: 'MT-07', derivative: 'ABS', year: '2019', mileage: '8400', owners: '1', colour: 'Ice Fluo', engine: '689', price: '5295.00' },
+  { reg: 'WP21XYZ', make: 'Triumph', model: 'Street Triple', derivative: 'R', year: '2021', mileage: '5200', owners: '2', colour: 'Crystal White', engine: '765', price: '8495.00' },
+  { reg: 'HN17DEF', make: 'Honda', model: 'CB500X', derivative: 'ABS', year: '2017', mileage: '14900', owners: '3', colour: 'Red', engine: '471', price: '3995.00' },
+];
+
+// ---------- Small helpers ----------
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const keyFor = (b) => 'bike:' + (b.id || b.reg || (b.make + b.model));
+
+let settings = { ...DEFAULT_SETTINGS, ...store.get('settings', {}) };
+let stock = [];
+let manual = store.get('manualBikes', []);
+let current = null; // { bike, details, ad }
+
+async function api(path, opts = {}) {
+  const res = await fetch('/.netlify/functions/' + path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', 'x-app-password': settings.password || '', ...(opts.headers || {}) },
+  });
+  let body; try { body = await res.json(); } catch { body = { error: 'Unexpected response (' + res.status + ')' }; }
+  if (!res.ok) { const e = new Error(body.error || 'Request failed'); e.body = body; e.status = res.status; throw e; }
+  return body;
+}
+
+// ---------- Stock ----------
+async function loadStock() {
+  $('modeTag').textContent = 'Connecting…'; $('modeTag').className = 'tag';
+  try {
+    const { bikes } = await api('stock');
+    stock = bikes;
+    $('modeTag').textContent = `Live · ${bikes.length} bikes from MotorDesk`; $('modeTag').className = 'tag live';
+  } catch (e) {
+    stock = DEMO_STOCK;
+    $('modeTag').textContent = e.status === 401 ? 'Password needed – see Settings' : 'Demo mode – MotorDesk not connected';
+    $('modeTag').className = 'tag demo';
+    $('modeTag').title = (e.message || '') + (e.body?.details ? '\n' + JSON.stringify(e.body.details).slice(0, 300) : '');
+  }
+  renderList();
+}
+
+function allBikes() { return [...manual.map((b) => ({ ...b, manual: true })), ...stock]; }
+
+function renderList() {
+  const q = $('search').value.trim().toLowerCase();
+  const list = allBikes().filter((b) => !q || [b.reg, b.make, b.model, b.derivative].join(' ').toLowerCase().includes(q));
+  $('stockList').innerHTML = list.length ? list.map((b, i) => {
+    const saved = store.get(keyFor(b), null);
+    const done = saved && saved.ad;
+    const active = current && keyFor(current.bike) === keyFor(b);
+    return `<div class="bike-item ${active ? 'active' : ''}" data-key="${esc(keyFor(b))}">
+      <div class="thumb" ${b.photo ? `style="background-image:url('${esc(b.photo)}')"` : ''}>${b.photo ? '' : '🏍'}</div>
+      <div><div class="t">${esc(b.year)} ${esc(b.make)} ${esc(b.model)}</div>
+      <div class="s"><span class="plate">${esc(b.reg || 'NO REG')}</span> ${b.mileage ? esc(Number(b.mileage).toLocaleString('en-GB')) + ' mi' : ''}${b.manual ? ' · manual' : ''}</div></div>
+      ${done ? '<span class="badge">✓ Advert</span>' : ''}</div>`;
+  }).join('') : '<p class="empty" style="margin:30px 14px">No bikes found.</p>';
+  $('stockList').querySelectorAll('.bike-item').forEach((el) => el.onclick = () => openBike(allBikes().find((b) => keyFor(b) === el.dataset.key)));
+}
+
+// ---------- Editor ----------
+function openBike(bike) {
+  const saved = store.get(keyFor(bike), null);
+  current = {
+    bike: { ...bike, ...(saved?.bikeEdits || {}) },
+    details: saved?.details || { tone: 'enthusiastic' },
+    ad: saved?.ad || null,
+    origKey: keyFor(bike),
+  };
+  $('emptyState').hidden = true; $('editor').hidden = false; $('banner').innerHTML = '';
+  $('basics').innerHTML = BASICS.map(([k, label]) =>
+    `<label>${label}<input data-b="${k}" value="${esc(current.bike[k] ?? '')}"></label>`).join('');
+  $('dropdowns').innerHTML = DROPDOWNS.map(([k, label, opts]) =>
+    `<label>${label}<select data-d="${k}"><option value="">—</option>${opts.map((o) => `<option${current.details[k] === o ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select></label>`).join('');
+  document.querySelectorAll('#editor [data-d]').forEach((el) => {
+    if (el.tagName !== 'SELECT' || el.dataset.d === 'tone') el.value = current.details[el.dataset.d] ?? (el.dataset.d === 'tone' ? 'enthusiastic' : '');
+  });
+  $('tweak').value = '';
+  renderOutputs();
+  renderList();
+  $('main').scrollTop = 0;
+}
+
+function collect() {
+  document.querySelectorAll('#editor [data-b]').forEach((el) => current.bike[el.dataset.b] = el.value.trim());
+  document.querySelectorAll('#editor [data-d]').forEach((el) => current.details[el.dataset.d] = el.value);
+}
+
+function save() {
+  if (!current) return;
+  collect();
+  const edits = {};
+  BASICS.forEach(([k]) => edits[k] = current.bike[k]);
+  store.set(current.origKey, { bikeEdits: edits, details: current.details, ad: current.ad, savedAt: Date.now() });
+  const m = manual.find((b) => keyFor(b) === current.origKey);
+  if (m) { Object.assign(m, edits); store.set('manualBikes', manual); renderList(); }
+}
+
+document.addEventListener('input', (e) => { if (e.target.closest('#editor') && !e.target.closest('#outputs')) save(); });
+document.addEventListener('change', (e) => { if (e.target.closest('#editor') && !e.target.closest('#outputs')) save(); });
+
+// ---------- Generate ----------
+$('genBtn').onclick = async () => {
+  collect(); save();
+  const btn = $('genBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Writing…';
+  $('banner').innerHTML = '';
+  try {
+    const ad = await api('generate', {
+      method: 'POST',
+      body: JSON.stringify({ bike: current.bike, details: current.details, settings, tweak: $('tweak').value.trim() }),
+    });
+    current.ad = ad; save(); renderOutputs(); renderList();
+    $('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) {
+    $('banner').innerHTML = `<div class="error">Couldn't write the advert: ${esc(e.message)}${e.body?.details ? '\n' + esc(JSON.stringify(e.body.details).slice(0, 400)) : ''}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = current.ad ? 'Rewrite adverts' : 'Write adverts';
+  }
+};
+
+function renderOutputs() {
+  const ad = current.ad;
+  $('results').hidden = !ad;
+  $('genBtn').textContent = ad ? 'Rewrite adverts' : 'Write adverts';
+  if (!ad) return;
+  const blocks = [
+    ['attention_grabber', 'AutoTrader attention grabber', 30, 'chars'],
+    ['autotrader_description', 'AutoTrader description', null, 'words'],
+    ['website_title', 'Website title', null, 'chars'],
+    ['website_description', 'Website advert', null, 'words'],
+  ];
+  $('outputs').innerHTML = blocks.map(([k, label, max, unit]) => `
+    <div class="out">
+      <div class="out-head"><b>${label}</b><span class="count" data-count="${k}" data-max="${max ?? ''}" data-unit="${unit}"></span>
+        <span class="grow"></span><button data-copy="${k}">Copy</button></div>
+      <textarea data-out="${k}" rows="${k.includes('description') ? 12 : 1}">${esc(ad[k] || '')}</textarea>
+    </div>`).join('');
+  $('outputs').querySelectorAll('textarea').forEach((t) => {
+    const upd = () => { current.ad[t.dataset.out] = t.value; updateCount(t.dataset.out); save(); };
+    t.oninput = upd; updateCount(t.dataset.out);
+  });
+  $('outputs').querySelectorAll('[data-copy]').forEach((b) => b.onclick = async () => {
+    const t = $('outputs').querySelector(`[data-out="${b.dataset.copy}"]`);
+    try { await navigator.clipboard.writeText(t.value); } catch { t.select(); document.execCommand('copy'); }
+    b.textContent = 'Copied ✓'; b.classList.add('copied');
+    setTimeout(() => { b.textContent = 'Copy'; b.classList.remove('copied'); }, 1500);
+  });
+}
+
+function updateCount(k) {
+  const el = $('outputs').querySelector(`[data-count="${k}"]`);
+  const v = $('outputs').querySelector(`[data-out="${k}"]`).value;
+  const n = el.dataset.unit === 'words' ? (v.trim() ? v.trim().split(/\s+/).length : 0) : v.length;
+  const max = Number(el.dataset.max) || 0;
+  el.textContent = max ? `${n}/${max} ${el.dataset.unit}` : `${n} ${el.dataset.unit}`;
+  el.classList.toggle('bad', !!max && n > max);
+}
+
+// ---------- Manual bikes ----------
+$('manualBtn').onclick = () => {
+  const bike = { reg: '', make: 'New', model: 'bike', id: 'manual-' + Date.now(), year: '' };
+  manual.unshift(bike); store.set('manualBikes', manual);
+  openBike({ ...bike, manual: true });
+  $('banner').innerHTML = '<div class="info">Fill in the basics below – this bike is saved on this computer only.</div>';
+};
+
+// ---------- Settings ----------
+const SKEYS = ['password', 'dealerName', 'location', 'phone', 'website', 'usps'];
+$('settingsBtn').onclick = () => { SKEYS.forEach((k) => $('s_' + k).value = settings[k] || ''); $('debugOut').hidden = true; $('settingsDlg').showModal(); };
+$('settingsCancel').onclick = () => $('settingsDlg').close();
+$('settingsSave').onclick = () => {
+  const pwChanged = $('s_password').value !== settings.password;
+  SKEYS.forEach((k) => settings[k] = $('s_' + k).value.trim());
+  store.set('settings', settings); $('settingsDlg').close();
+  if (pwChanged) loadStock();
+};
+$('debugBtn').onclick = async () => {
+  const out = $('debugOut'); out.hidden = false; out.textContent = 'Loading…';
+  try { out.textContent = JSON.stringify(await api('stock?debug=1'), null, 2); }
+  catch (e) { out.textContent = e.message + '\n' + JSON.stringify(e.body, null, 2); }
+};
+
+$('search').oninput = renderList;
+$('refreshBtn').onclick = loadStock;
+loadStock();
+</script>
+</body>
+</html>
