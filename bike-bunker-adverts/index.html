@@ -81,6 +81,25 @@
   .out-head button { background: var(--black); color: var(--lime); border-color: var(--black); padding: 6px 14px; font-size: 12px; }
   .out textarea { border: 0; border-radius: 0; min-height: 60px; background: #fff; }
   .out textarea:focus { outline: none; }
+  .group-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); margin: 22px 0 10px; }
+  .group-title:first-child { margin-top: 0; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 18px 0 14px; }
+  .stat { background: #f6f6f6; border-radius: 12px; padding: 12px 14px; }
+  .stat .k { font-size: 11px; color: var(--muted); font-weight: 500; }
+  .stat .v { font-size: 22px; font-weight: 700; margin-top: 2px; }
+  .stat.main { background: var(--char); color: #fff; }
+  .stat.main .k { color: #bbb; }
+  .stat.main .v { color: var(--lime); }
+  .pill { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; background: #f0f0ee; }
+  .pill.good { background: var(--lime); color: var(--black); }
+  .pill.warn { background: #ffe1a8; color: #6b4300; }
+  .pill.bad { background: #ffd3d3; color: #7a1010; }
+  .price-summary { line-height: 1.6; margin: 12px 0 6px; }
+  table.comps { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+  table.comps th { text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); padding: 8px; border-bottom: 2px solid var(--lime); }
+  table.comps td { padding: 9px 8px; border-bottom: 1px solid var(--line); }
+  table.comps td.num { font-weight: 600; }
+  table.comps a { color: var(--ink); font-weight: 500; }
   .copied { background: #fff !important; color: var(--black) !important; }
   .error { background: #fff0f0; border-left: 4px solid var(--err); color: #7a1010; padding: 12px 14px; border-radius: 10px; margin-bottom: 16px; white-space: pre-wrap; }
   .info { background: #f6ffe0; border-left: 4px solid var(--lime-dark); color: #3a4a10; padding: 12px 14px; border-radius: 10px; margin-bottom: 16px; }
@@ -149,6 +168,15 @@
         </div>
       </div>
 
+      <div class="card" id="priceCard">
+        <h2><span class="num">4</span>Price check <small>compares live UK listings – takes about 30–60 seconds</small></h2>
+        <div class="actions">
+          <button class="primary" id="priceBtn">Check market price</button>
+          <span class="hint" id="priceHint">Uses the basics, condition, history and mods above.</span>
+        </div>
+        <div id="priceOut"></div>
+      </div>
+
       <div class="card dark">
         <div class="actions">
           <label style="width:200px">Tone
@@ -161,12 +189,12 @@
           <label class="grow">Extra instructions <span class="hint">optional – e.g. "mention it's ideal for a first big bike"</span>
             <input id="tweak">
           </label>
-          <button class="primary" id="genBtn" style="align-self:end;padding:10px 22px">Write adverts</button>
+          <button class="primary" id="genBtn" style="align-self:end;padding:10px 22px">Write adverts &amp; posts</button>
         </div>
       </div>
 
       <div class="card" id="results" hidden>
-        <h2><span class="num">4</span>Your adverts <small>edit here if you like, then copy into MotorDesk</small></h2>
+        <h2><span class="num">5</span>Your adverts &amp; posts <small>edit here if you like, then copy and paste</small></h2>
         <div id="outputs"></div>
       </div>
     </div>
@@ -252,6 +280,26 @@ async function api(path, opts = {}) {
   return body;
 }
 
+// ---------- Background jobs (AI work runs on Netlify in the background, page checks back) ----------
+async function runJob(type, payload, onTick) {
+  const jobId = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
+  const res = await fetch('/.netlify/functions/job-background', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-app-password': settings.password || '' },
+    body: JSON.stringify({ jobId, type, payload }),
+  });
+  if (res.status === 404) throw new Error('Background function not found – check the netlify/functions folder and package.json are in GitHub, then redeploy.');
+  const started = Date.now();
+  while (Date.now() - started < 240000) {
+    await new Promise((r) => setTimeout(r, 2500));
+    onTick && onTick(Math.round((Date.now() - started) / 1000));
+    const job = await api('job-result?id=' + encodeURIComponent(jobId));
+    if (job.status === 'done') return job.result;
+    if (job.status === 'error') throw new Error(job.error);
+  }
+  throw new Error('This took longer than 4 minutes. Please try again.');
+}
+
 // ---------- Stock ----------
 async function loadStock() {
   $('modeTag').textContent = 'Connecting…'; $('modeTag').className = 'tag';
@@ -304,6 +352,7 @@ function openBike(bike) {
     bike: { ...bike, ...(saved?.bikeEdits || {}) },
     details: saved?.details || { tone: 'enthusiastic' },
     ad: saved?.ad || null,
+    price: saved?.price || null,
     origKey: keyFor(bike),
   };
   $('emptyState').hidden = true; $('editor').hidden = false; $('banner').innerHTML = '';
@@ -316,6 +365,7 @@ function openBike(bike) {
   });
   $('tweak').value = '';
   renderOutputs();
+  renderPrice();
   renderList();
   $('main').scrollTop = 0;
 }
@@ -330,7 +380,7 @@ function save() {
   collect();
   const edits = {};
   BASICS.forEach(([k]) => edits[k] = current.bike[k]);
-  store.set(current.origKey, { bikeEdits: edits, details: current.details, ad: current.ad, savedAt: Date.now() });
+  store.set(current.origKey, { bikeEdits: edits, details: current.details, ad: current.ad, price: current.price, savedAt: Date.now() });
   const m = manual.find((b) => keyFor(b) === current.origKey);
   if (m) { Object.assign(m, edits); store.set('manualBikes', manual); renderList(); }
 }
@@ -345,36 +395,39 @@ $('genBtn').onclick = async () => {
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Writing…';
   $('banner').innerHTML = '';
   try {
-    const ad = await api('generate', {
-      method: 'POST',
-      body: JSON.stringify({ bike: current.bike, details: current.details, settings, tweak: $('tweak').value.trim() }),
-    });
+    const forBike = current;
+    const ad = await runJob('adverts', { bike: current.bike, details: current.details, settings, tweak: $('tweak').value.trim() },
+      (s) => { btn.innerHTML = `<span class="spinner"></span>Writing… ${s}s`; });
+    if (current !== forBike) { store.set(forBike.origKey, { ...store.get(forBike.origKey, {}), ad }); renderList(); return; }
     current.ad = ad; save(); renderOutputs(); renderList();
     $('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (e) {
-    $('banner').innerHTML = `<div class="error">Couldn't write the advert: ${esc(e.message)}${e.body?.details ? '\n' + esc(JSON.stringify(e.body.details).slice(0, 400)) : ''}</div>`;
+    $('banner').innerHTML = `<div class="error">Couldn't write the advert: ${esc(e.message)}</div>`;
   } finally {
-    btn.disabled = false; btn.textContent = current.ad ? 'Rewrite adverts' : 'Write adverts';
+    btn.disabled = false; btn.textContent = current.ad ? 'Rewrite adverts & posts' : 'Write adverts & posts';
   }
 };
 
 function renderOutputs() {
   const ad = current.ad;
   $('results').hidden = !ad;
-  $('genBtn').textContent = ad ? 'Rewrite adverts' : 'Write adverts';
+  $('genBtn').textContent = ad ? 'Rewrite adverts & posts' : 'Write adverts & posts';
   if (!ad) return;
-  const blocks = [
-    ['attention_grabber', 'AutoTrader attention grabber', 30, 'chars'],
-    ['autotrader_description', 'AutoTrader description', null, 'words'],
-    ['website_title', 'Website title', null, 'chars'],
-    ['website_description', 'Website advert', null, 'words'],
+  const groups = [
+    ['AutoTrader', [['attention_grabber', 'Attention grabber', 30, 'chars', 1], ['autotrader_description', 'Description', null, 'words', 12]]],
+    ['Website', [['website_title', 'Title', null, 'chars', 1], ['website_description', 'Advert', null, 'words', 14]]],
+    ['Social media', [['facebook_post', 'Facebook post', null, 'words', 9], ['instagram_caption', 'Instagram caption', null, 'words', 10]]],
   ];
-  $('outputs').innerHTML = blocks.map(([k, label, max, unit]) => `
+  $('outputs').innerHTML = groups.map(([g, blocks]) => {
+    const shown = blocks.filter(([k]) => ad[k] !== undefined);
+    if (!shown.length) return '';
+    return `<div class="group-title">${g}</div>` + shown.map(([k, label, max, unit, rows]) => `
     <div class="out">
       <div class="out-head"><b>${label}</b><span class="count" data-count="${k}" data-max="${max ?? ''}" data-unit="${unit}"></span>
         <span class="grow"></span><button data-copy="${k}">Copy</button></div>
-      <textarea data-out="${k}" rows="${k.includes('description') ? 12 : 1}">${esc(ad[k] || '')}</textarea>
+      <textarea data-out="${k}" rows="${rows}">${esc(ad[k] || '')}</textarea>
     </div>`).join('');
+  }).join('');
   $('outputs').querySelectorAll('textarea').forEach((t) => {
     const upd = () => { current.ad[t.dataset.out] = t.value; updateCount(t.dataset.out); save(); };
     t.oninput = upd; updateCount(t.dataset.out);
@@ -394,6 +447,66 @@ function updateCount(k) {
   const max = Number(el.dataset.max) || 0;
   el.textContent = max ? `${n}/${max} ${el.dataset.unit}` : `${n} ${el.dataset.unit}`;
   el.classList.toggle('bad', !!max && n > max);
+}
+
+// ---------- Price check ----------
+const gbp = (n) => (n || n === 0) && !isNaN(n) ? '£' + Math.round(Number(n)).toLocaleString('en-GB') : '–';
+
+$('priceBtn').onclick = async () => {
+  collect(); save();
+  if (!current.bike.make || !current.bike.model) { $('priceOut').innerHTML = '<div class="error" style="margin-top:14px">Add the make and model first.</div>'; return; }
+  const btn = $('priceBtn'), forBike = current;
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Searching listings…';
+  $('priceOut').innerHTML = '';
+  try {
+    const result = await runJob('price', { bike: current.bike, details: current.details },
+      (s) => { if (current === forBike) btn.innerHTML = `<span class="spinner"></span>Searching listings… ${s}s`; });
+    forBike.price = result;
+    if (current === forBike) { save(); renderPrice(); }
+    else store.set(forBike.origKey, { ...store.get(forBike.origKey, {}), price: result });
+  } catch (e) {
+    if (current === forBike) $('priceOut').innerHTML = `<div class="error" style="margin-top:14px">Price check failed: ${esc(e.message)}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = current.price ? 'Check again' : 'Check market price';
+  }
+};
+
+function renderPrice() {
+  const p = current.price;
+  $('priceBtn').textContent = p ? 'Check again' : 'Check market price';
+  if (!p) { $('priceOut').innerHTML = ''; return; }
+  const verdictClass = { 'about right': 'good', 'under-priced': 'warn', 'over-priced': 'bad' }[p.verdict] || '';
+  const ours = Number(String(current.bike.price || '').replace(/[^0-9.]/g, ''));
+  const diff = ours && p.suggested_retail ? ours - p.suggested_retail : null;
+  const comps = Array.isArray(p.comparables) ? p.comparables : [];
+  const safeUrl = (u) => /^https?:\/\//i.test(u || '') ? u : '';
+  $('priceOut').innerHTML = `
+    <div class="stats">
+      <div class="stat main"><div class="k">Suggested retail</div><div class="v">${gbp(p.suggested_retail)}</div></div>
+      <div class="stat"><div class="k">Retail range</div><div class="v" style="font-size:18px;white-space:nowrap">${gbp(p.retail_low)} – ${gbp(p.retail_high)}</div></div>
+      <div class="stat"><div class="k">Quick sale</div><div class="v">${gbp(p.quick_sale)}</div></div>
+      <div class="stat"><div class="k">Trade buy-in (est.)</div><div class="v">${gbp(p.trade_buy_in_estimate)}</div></div>
+      <div class="stat"><div class="k">Your price</div><div class="v">${ours ? gbp(ours) : '–'}</div></div>
+    </div>
+    <div class="actions">
+      <span class="pill ${verdictClass}">${esc(p.verdict || '')}${diff !== null && Math.abs(diff) >= 50 ? ` · ${diff > 0 ? '+' : '−'}${gbp(Math.abs(diff))} vs suggested` : ''}</span>
+      <span class="pill">Confidence: ${esc(p.confidence || '?')}</span>
+      <span class="hint">Checked ${p.checkedAt ? new Date(p.checkedAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : ''}</span>
+      <span class="grow"></span>
+      ${p.suggested_retail ? `<button id="useSuggested">Use ${gbp(p.suggested_retail)} as my price</button>` : ''}
+    </div>
+    <p class="price-summary">${esc(p.summary || '')}</p>
+    ${p.adjustments ? `<p class="hint" style="margin:0 0 6px">${esc(p.adjustments)}</p>` : ''}
+    ${comps.length ? `<table class="comps"><thead><tr><th>Comparable</th><th>Year</th><th>Miles</th><th>Price</th><th>Seller</th><th>Source</th></tr></thead><tbody>
+      ${comps.map((c) => `<tr><td>${esc(c.title)}</td><td>${esc(c.year)}</td><td>${esc(c.mileage)}</td><td class="num">${gbp(c.price)}</td><td>${esc(c.seller)}</td>
+        <td>${safeUrl(c.url) ? `<a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.source || 'View')} ↗</a>` : esc(c.source)}</td></tr>`).join('')}
+    </tbody></table>` : ''}
+    <p class="hint" style="margin-top:12px">Based on asking prices in live adverts, not sold prices – a guide to use alongside your own judgement.</p>`;
+  const use = $('useSuggested');
+  if (use) use.onclick = () => {
+    document.querySelector('[data-b="price"]').value = String(Math.round(p.suggested_retail));
+    save(); renderPrice();
+  };
 }
 
 // ---------- Manual bikes ----------
