@@ -1,5 +1,8 @@
 // Calls the Claude API. Handles web-search "pause_turn" continuations and pulls the JSON out of the reply.
 
+// Strip stray spaces, line breaks or quote marks pasted in with a key
+export const cleanKey = (k) => String(k || '').trim().replace(/^["'“”‘’]+|["'“”‘’]+$/g, '').trim();
+
 export const MODEL = process.env.CLAUDE_MODEL || 'claude-sonnet-5-5';
 
 export async function callClaude(prompt, { maxTokens = 3000, webSearch = false, maxSearches = 6 } = {}) {
@@ -18,7 +21,7 @@ export async function callClaude(prompt, { maxTokens = 3000, webSearch = false, 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'x-api-key': cleanKey(process.env.ANTHROPIC_API_KEY),
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
       },
@@ -27,7 +30,7 @@ export async function callClaude(prompt, { maxTokens = 3000, webSearch = false, 
     const data = await res.json();
     if (!res.ok) {
       const msg = data?.error?.message || JSON.stringify(data).slice(0, 300);
-      throw new Error(`Claude API error ${res.status}: ${msg}`);
+      throw new Error(`Claude API error ${res.status}: ${msg}${res.status === 401 ? ' – use Settings > Check connections to see which key Netlify is using' : ''}`);
     }
     text = (data.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('');
     if (data.stop_reason !== 'pause_turn') break;

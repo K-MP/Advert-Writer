@@ -212,8 +212,12 @@
     <label>Website <input id="s_website"></label>
     <label>Standard selling points <span class="hint">used in the website advert's "why buy from us"</span>
       <textarea id="s_usps" rows="3"></textarea></label>
-    <div>
+    <div class="actions">
+      <button id="diagBtn" type="button">Check connections</button>
       <button id="debugBtn" type="button">Show raw MotorDesk data</button>
+    </div>
+    <div id="diagOut"></div>
+    <div>
       <pre class="debug" id="debugOut" hidden></pre>
     </div>
   </div>
@@ -519,13 +523,37 @@ $('manualBtn').onclick = () => {
 
 // ---------- Settings ----------
 const SKEYS = ['password', 'dealerName', 'location', 'phone', 'website', 'usps'];
-$('settingsBtn').onclick = () => { SKEYS.forEach((k) => $('s_' + k).value = settings[k] || ''); $('debugOut').hidden = true; $('settingsDlg').showModal(); };
+$('settingsBtn').onclick = () => { SKEYS.forEach((k) => $('s_' + k).value = settings[k] || ''); $('debugOut').hidden = true; $('diagOut').innerHTML = ''; $('settingsDlg').showModal(); };
 $('settingsCancel').onclick = () => $('settingsDlg').close();
 $('settingsSave').onclick = () => {
   SKEYS.forEach((k) => settings[k] = $('s_' + k).value.trim());
   store.set('settings', settings); $('settingsDlg').close();
   loadStock();
 };
+$('diagBtn').onclick = async () => {
+  const out = $('diagOut');
+  out.innerHTML = '<p class="hint">Checking…</p>';
+  // use the password currently typed in the box, even if not saved yet
+  const typed = $('s_password').value;
+  try {
+    const res = await fetch('/.netlify/functions/diagnose', { headers: { 'x-app-password': typed } });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error || 'Check failed (' + res.status + ')');
+    const row = (name, k, envName) => !k.set
+      ? `<tr><td><b>${name}</b></td><td colspan="2" style="color:#b00000">Not set – add <code>${envName}</code> in Netlify, then redeploy</td></tr>`
+      : `<tr><td><b>${name}</b></td><td><code>${esc(k.looksLike)}</code><br><span class="hint">${k.length} characters${k.hadExtraSpacesOrQuotes ? ' · had extra spaces/quotes (now ignored)' : ''}</span></td>
+         <td style="color:${/^OK/.test(k.test || '') ? '#2f7d4f' : '#b00000'};font-weight:600">${esc(k.test || '')}</td></tr>`;
+    out.innerHTML = `<table class="comps"><tbody>
+      ${row('Claude', d.anthropic, 'ANTHROPIC_API_KEY')}
+      ${row('MotorDesk', d.motordesk, 'MOTORDESK_API_KEY')}
+      <tr><td><b>Netlify deploy</b></td><td colspan="2">${esc(d.deployContext)}${d.appPasswordSet ? ' · password on' : ' · no password set'}</td></tr>
+    </tbody></table>
+    <p class="hint">Compare the first and last characters with the key shown in the Claude Console (API Keys page).</p>`;
+  } catch (e) {
+    out.innerHTML = `<div class="error" style="margin-top:8px">${esc(e.message)}${/404|Unexpected/.test(e.message) ? ' – redeploy after uploading diagnose.mjs' : ''}</div>`;
+  }
+};
+
 $('debugBtn').onclick = async () => {
   const out = $('debugOut'); out.hidden = false; out.textContent = 'Loading…';
   try { out.textContent = JSON.stringify(await api('stock?debug=1'), null, 2); }

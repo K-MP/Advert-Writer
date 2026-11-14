@@ -80,7 +80,7 @@ async function fetchPage(page, status) {
   const params = new URLSearchParams({ page: String(page), per_page: '100' });
   if (status) params.set('status', status);
   const res = await fetch(`${BASE}/vehicles?${params}`, {
-    headers: { Authorization: `Bearer ${process.env.MOTORDESK_API_KEY}`, Accept: 'application/json' },
+    headers: { Authorization: `Bearer ${String(process.env.MOTORDESK_API_KEY || '').trim().replace(/^["']+|["']+$/g, '').trim()}`, Accept: 'application/json' },
   });
   const text = await res.text();
   let body;
