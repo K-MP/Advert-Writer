@@ -2,7 +2,7 @@
 // Env vars (set in Netlify > Site configuration > Environment variables):
 //   MOTORDESK_API_KEY  - scoped key in the form key_id.secret (needs vehicles read access)
 //   APP_PASSWORD       - optional; if set, the page must send it in the x-app-password header
-//   MOTORDESK_STATUS   - optional; status filter, defaults to "for-sale"
+//   MOTORDESK_STATUS   - optional; comma-separated statuses to show, defaults to "for-sale,draft"
 
 const BASE = process.env.MOTORDESK_BASE_URL || 'https://api.motordesk.com/2.0';
 
@@ -88,39 +88,60 @@ async function fetchPage(page, status) {
   return { ok: res.ok && body.success !== false, status: res.status, body };
 }
 
+// Fetch every page for one status ('' = no filter). Returns null if MotorDesk rejects the status value.
+async function fetchAll(status) {
+  const first = await fetchPage(1, status);
+  if (!first.ok) {
+    if (first.status === 400 || first.status === 422) return null;
+    const e = new Error(`MotorDesk returned ${first.status}`); e.details = first.body; throw e;
+  }
+  let items = Array.isArray(first.body.data) ? first.body.data : first.body.data?.items || [];
+  const totalPages = Math.min(first.body.meta?.pagination?.total_pages || 1, 10);
+  for (let p = 2; p <= totalPages; p++) {
+    const next = await fetchPage(p, status);
+    if (!next.ok) break;
+    items = items.concat(Array.isArray(next.body.data) ? next.body.data : []);
+  }
+  return items;
+}
+
 exports.handler = async (event) => {
   const pw = process.env.APP_PASSWORD;
   if (pw && event.headers['x-app-password'] !== pw) return json(401, { error: 'Wrong or missing app password' });
   if (!process.env.MOTORDESK_API_KEY) return json(500, { error: 'MOTORDESK_API_KEY is not set in Netlify environment variables' });
 
   const debug = event.queryStringParameters && event.queryStringParameters.debug === '1';
-  let status = process.env.MOTORDESK_STATUS ?? 'for-sale';
+  // Which MotorDesk statuses to show, comma-separated. Default: for sale + draft.
+  const wanted = (process.env.MOTORDESK_STATUS || 'for-sale,draft').split(',').map((x) => x.trim()).filter(Boolean);
 
   try {
-    let first = await fetchPage(1, status);
-    // If the status filter value isn't accepted, retry without it
-    if (!first.ok && first.status === 400 && status) {
-      status = '';
-      first = await fetchPage(1, status);
+    let items = [];
+    const used = [];
+    for (const st of wanted) {
+      const got = await fetchAll(st);
+      if (got) { items = items.concat(got); used.push(st); }
     }
-    if (!first.ok) {
-      return json(502, { error: `MotorDesk returned ${first.status}`, details: first.body });
+    // If MotorDesk didn't accept any of the status names, fetch everything and filter here
+    if (!used.length) {
+      const all = (await fetchAll('')) || [];
+      const re = new RegExp(wanted.map((w) => w.replace(/[-_\s]/g, '[-_\\s]?')).join('|'), 'i');
+      items = all.filter((v) => !v.status || re.test(String(v.status)));
+      used.push('(filtered in app)');
     }
+    // Remove duplicates (a bike can't be in two statuses, but just in case)
+    const seen = new Set();
+    items = items.filter((v) => { const k = v.id || v.registration; if (seen.has(k)) return false; seen.add(k); return true; });
 
-    let items = Array.isArray(first.body.data) ? first.body.data : first.body.data?.items || [];
-    const totalPages = Math.min(first.body.meta?.pagination?.total_pages || 1, 10);
-    for (let p = 2; p <= totalPages; p++) {
-      const next = await fetchPage(p, status);
-      if (!next.ok) break;
-      items = items.concat(Array.isArray(next.body.data) ? next.body.data : []);
+    if (debug) {
+      const statuses = {};
+      items.forEach((v) => { statuses[v.status || '(none)'] = (statuses[v.status || '(none)'] || 0) + 1; });
+      return json(200, { count: items.length, statusesFetched: used, statusCounts: statuses, sample: items.slice(0, 2) });
     }
-
-    if (debug) return json(200, { sample: items.slice(0, 2), count: items.length, statusFilter: status || '(none)' });
 
     const bikes = items.map(normalise).filter((b) => b.reg || b.make);
-    return json(200, { bikes, statusFilter: status || '(none)' });
+    return json(200, { bikes, statusFilter: used.join(', ') });
   } catch (err) {
-    return json(500, { error: 'Could not reach MotorDesk', details: String(err) });
+    return json(err.details ? 502 : 500, { error: err.details ? err.message : 'Could not reach MotorDesk', details: err.details || String(err) });
   }
 };
 

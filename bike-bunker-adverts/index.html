@@ -50,6 +50,7 @@
   .bike-item .t { font-weight: 600; font-size: 13px; line-height: 1.3; }
   .bike-item .s { color: #aaa; font-size: 12px; margin-top: 3px; }
   .plate { display: inline-block; font-weight: 600; background: #f7d117; color: #111; padding: 0 6px; border-radius: 3px; letter-spacing: 1px; font-size: 11px; }
+  .draft { display: inline-block; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--lime); border: 1px solid var(--lime); border-radius: 4px; padding: 0 5px; margin-left: 4px; }
   .badge { margin-left: auto; font-size: 10px; font-weight: 600; color: var(--black); background: var(--lime); padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
   main { overflow-y: auto; padding: 28px 32px; }
   .empty { color: var(--muted); text-align: center; margin-top: 15vh; }
@@ -311,7 +312,8 @@ async function loadStock() {
   try {
     const { bikes } = await api('stock');
     stock = bikes;
-    $('modeTag').textContent = `Live · ${bikes.length} bikes from MotorDesk`; $('modeTag').className = 'tag live';
+    const drafts = bikes.filter((b) => /draft/i.test(b.status || '')).length;
+    $('modeTag').textContent = `Live · ${bikes.length} bikes from MotorDesk${drafts ? ` (${drafts} draft)` : ''}`; $('modeTag').className = 'tag live';
     box.textContent = '';
   } catch (e) {
     stock = DEMO_STOCK;
@@ -343,7 +345,7 @@ function renderList() {
     return `<div class="bike-item ${active ? 'active' : ''}" data-key="${esc(keyFor(b))}">
       <div class="thumb" ${b.photo ? `style="background-image:url('${esc(b.photo)}')"` : ''}>${b.photo ? '' : '🏍'}</div>
       <div><div class="t">${esc(b.year)} ${esc(b.make)} ${esc(b.model)}</div>
-      <div class="s"><span class="plate">${esc(b.reg || 'NO REG')}</span> ${b.mileage ? esc(Number(b.mileage).toLocaleString('en-GB')) + ' mi' : ''}${b.manual ? ' · manual' : ''}</div></div>
+      <div class="s"><span class="plate">${esc(b.reg || 'NO REG')}</span> ${b.mileage ? esc(Number(b.mileage).toLocaleString('en-GB')) + ' mi' : ''}${b.manual ? ' · manual' : ''}${/draft/i.test(b.status || '') ? ' <span class="draft">Draft</span>' : ''}</div></div>
       ${done ? '<span class="badge">✓ Advert</span>' : ''}</div>`;
   }).join('') : '<p class="empty" style="margin:30px 14px">No bikes found.</p>';
   $('stockList').querySelectorAll('.bike-item').forEach((el) => el.onclick = () => openBike(allBikes().find((b) => keyFor(b) === el.dataset.key)));
