@@ -3,80 +3,98 @@
 const line = (label, value) => (value !== undefined && value !== null && String(value).trim() !== '' ? `- ${label}: ${String(value).trim()}` : null);
 
 export function advertPrompt({ bike = {}, details = {}, settings = {}, tweak = '' }) {
+  const dealerName = settings.dealerName || 'The Bike Bunker';
   const facts = [
-    line('Registration', bike.reg),
     line('Make', bike.make),
     line('Model', bike.model),
     line('Derivative / trim', bike.derivative),
     line('Year', bike.year),
-    line('Mileage', bike.mileage && `${bike.mileage} miles`),
-    line('Previous owners', bike.owners),
     line('Colour', bike.colour),
+    line('Mileage', bike.mileage && `${Number(String(bike.mileage).replace(/[^0-9]/g, '')).toLocaleString('en-GB')} miles`),
+    line('Owners', bike.owners),
     line('Engine size', bike.engine && `${bike.engine}cc`),
-    line('Price (for context only)', bike.price && `£${bike.price}`),
+    line('Price (for social posts only)', bike.price && `£${Number(String(bike.price).replace(/[^0-9.]/g, '')).toLocaleString('en-GB')}`),
     line('Service history', details.serviceHistory),
-    line('Serviced by The Bike Bunker before sale', details.servicedByUs),
+    line('Number of service stamps', details.serviceStamps),
+    line('Recent major work (e.g. major service, valve clearances, belts)', details.majorWork),
+    line('Serviced by us before sale', details.servicedByUs),
     line('MOT', details.mot),
+    line('MOT expiry date', details.motExpiry),
     line('Keys', details.keys),
     line('Overall condition', details.condition),
     line('Tyres', details.tyres),
-    line('Paperwork (V5C, manual, receipts)', details.paperwork),
+    line('Paperwork', details.paperwork),
     line('HPI / history check', details.hpi),
-    line('Warranty included', details.warranty),
-    line('Licence category', details.licence),
-    line('Best suited to', details.idealFor),
+    line('Warranty', details.warranty),
+    line('Licence', details.licence),
+    line('Ideal for', details.idealFor),
     line('Modifications & upgrades', details.mods),
-    line('Key features & extras', details.features),
-    line('Marks, wear or known issues (be honest about these)', details.marks),
-    line('Extra notes / story', details.notes),
+    line('Features & extras', details.features),
+    line('Marks, wear or known issues', details.marks),
+    line('Extra notes', details.notes),
   ].filter(Boolean).join('\n');
 
-  const dealer = [
-    line('Dealer name', settings.dealerName || 'The Bike Bunker'),
-    line('Location', settings.location || 'Hayling Island, Hampshire'),
-    line('Phone', settings.phone),
-    line('Website', settings.website || 'bike-bunker.co.uk'),
-    line('Standard selling points we offer', settings.usps),
-  ].filter(Boolean).join('\n');
+  const standard = settings.usps || 'Fresh oil & filter service before collection\n12 months MOT\nFull pre-delivery inspection\n3 months warranty\nPart exchange welcome\nFinance available\nDelivery available';
 
   const tone = {
-    enthusiastic: 'Enthusiastic and warm, like a rider talking to a rider, but never cheesy or full of exclamation marks.',
+    enthusiastic: 'Warm and confident, like an experienced rider who knows the bike - but never cheesy.',
     professional: 'Professional, confident and factual. Calm, trustworthy dealer voice.',
-    punchy: 'Short and punchy. Tight sentences, scannable, no filler.',
-  }[details.tone] || 'Enthusiastic and warm, like a rider talking to a rider, but never cheesy.';
+    punchy: 'Tight and to the point. Short sentences, no filler.',
+  }[details.tone] || 'Warm and confident, like an experienced rider who knows the bike - but never cheesy.';
 
-  return `You write used-motorcycle adverts for a UK dealer. Write in British English.
+  return `You write used-motorcycle adverts for ${dealerName}, a motorcycle dealer in ${settings.location || 'Hayling Island, Hampshire'}. British English. Match the dealer's existing house style described below exactly.
 
 BIKE FACTS
 ${facts}
 
-DEALER
-${dealer}
+DEALER'S STANDARD OFFER (what every bike gets / what's available)
+${standard}
 
 TONE: ${tone}
 
-RULES
-- Use ONLY the facts above. Never invent service dates, features, specs, owners, warranty terms or history. If something isn't given, leave it out.
-- You may add a sentence of well-known, uncontroversial character about the model (e.g. what kind of riding it suits), but no specific performance figures unless given.
-- Lead with what makes THIS bike worth buying: the strongest facts (low owners, full history, mods, condition, keys) go early.
-- Mention modifications clearly, and say any original parts come with it only if stated.
-- If marks or issues are listed, mention them briefly and honestly - it builds trust.
-- No emojis. No ALL CAPS sentences. No clichés like "don't miss out" or "won't last long".
+GOLDEN RULES
+- Use ONLY the facts above. Never invent service dates, stamps, MOT dates, owners, extras, tyre brands or history. If something isn't given, leave it out (don't write "unknown").
+- Be specific: numbers sell (e.g. "8 service stamps", "valve clearances done", "MOT until 27/03/2027", brand names of extras and tyres).
+- Be honest about wear in a matter-of-fact way (e.g. "minor stone chips to the lower fairing"). If service history is missing or partial, say so plainly and mention what we've done to make up for it.
+- If original parts come with the bike (e.g. standard exhaust), say so.
+- Plain text only: no markdown, no asterisks, no emojis in outputs 1-3. Use a plain line for each heading, and "- " at the start of each list point.
+- Do NOT put the price, phone numbers, email or web links in outputs 1-3 (price shows on the listing automatically and can change).
 
-OUTPUT 1 - AutoTrader attention grabber: max 30 characters including spaces. The single strongest selling point (e.g. "1 owner, full history, 2 keys").
+OUTPUT 1 - "title": the listing subtitle in the house format "<Make> <Model> – <Selling point> & <Selling point>", using an en dash. Put the year first when the bike is 2 years old or newer (e.g. "2025 Kawasaki Z400 – 1 Owner & Low Mileage"). Use title case and keep it under 60 characters. Examples of the house style: "BMW F850 GS Adventure – Full Luggage & Full History", "Yamaha XSR700 – SC Project Exhaust & Low Miles", "Suzuki Burgman 400 – 13 Service Stamps & Heated Grips", "Royal Enfield Meteor 350 – Ideal First Cruiser".
 
-OUTPUT 2 - AutoTrader description: 110-180 words. Plain text only (no markdown, no asterisks). Short opening paragraph, then a few key points each on its own line starting with "- ", then one closing line. Do NOT include price, phone numbers, email, website links or opening hours - AutoTrader shows those elsewhere and links aren't clickable.
+OUTPUT 2 - "attention_grabber": AutoTrader attention grabber, max 30 characters including spaces, the strongest 2-3 facts (e.g. "1 Owner, FSH, 2 Keys").
 
-OUTPUT 3 - Website advert title: a clean listing title like "2019 Yamaha MT-07 - 1 Owner, Full Service History".
+OUTPUT 3 - "advert": the full advert used on AutoTrader and the website, 220-340 words, in this exact structure:
+<Year> <Make> <Model>
+(blank line)
+An opening paragraph that starts "${dealerName} is pleased to offer this..." and gives the colour, mileage, number of owners and the one or two things that make this bike stand out. 2-3 sentences.
+(blank line)
+Condition
+1-2 sentences on overall condition, including any honest notes on wear.
+(blank line)
+Key Details
+- one point per fact: mileage, owners, service history (with stamps), recent major work, MOT, keys, paperwork, licence (A2 etc.) - only those given
+(blank line)
+Features & Extras
+- one point per extra/modification, with brand names; include tyres if given
+(blank line)
+Ideal For
+One sentence on the type of rider and riding it suits (e.g. touring, commuting, weekend riding, A2 riders).
+(blank line)
+Why This One?
+2-3 sentences recapping the strongest reasons to buy this particular bike.
+(blank line)
+Before Collection
+- one point per item from the dealer's standard offer that is done to the bike (service, MOT, PDI, warranty). Use the Warranty fact above if given, otherwise the standard offer.
+(blank line)
+A one-line closing pitch in the house style, e.g. "A superb opportunity to own a well-maintained <Model>." followed by a line that lists what's available (part exchange, finance, delivery) from the standard offer.
 
-OUTPUT 4 - Website advert: 180-280 words. Plain text, no markdown symbols. Opening paragraph, a "Highlights" line followed by points each starting with "- ", a short paragraph on condition, then a short "Why buy from ${settings.dealerName || 'The Bike Bunker'}" paragraph using only the dealer selling points given, ending with a clear call to action${settings.phone ? ' including the phone number' : ''}.
-OUTPUT 5 - Facebook post: 60-110 words. Friendly, local and scroll-stopping first line (e.g. "Just in at ${settings.dealerName || 'The Bike Bunker'}..."). A few short lines with the key facts, each starting with "- " or a simple check mark (✅). You MAY use 2-4 relevant emojis here. Include the price${settings.phone ? ', phone number' : ''} and website if given. End with a call to action (message us / call / pop in).
+OUTPUT 4 - "facebook_post": 60-110 words. Friendly and local, a scroll-stopping first line (e.g. "Just in at ${dealerName}..."), the key facts on short lines starting with "✅", the price if given${settings.phone ? ' and phone number' : ''}, and a call to action. 2-4 emojis is fine here.
 
-OUTPUT 6 - Instagram caption: 50-90 words, same facts but punchier, 2-4 emojis allowed, include the price if given and "Link in bio" or "DM us" as the call to action. Then a blank line and 12-18 relevant hashtags: make/model tags (e.g. #yamaha #mt07), bike-type tags, UK biking tags (#ukbikers #bikelife) and local tags (#hampshire #haylingisland #portsmouth #usedmotorbikes).
-Note: the "no emojis" rule above applies to outputs 1-4 only.
+OUTPUT 5 - "instagram_caption": 50-90 words, punchier, 2-4 emojis, price if given, "DM us" or "Link in bio" call to action, then a blank line and 12-18 hashtags (make/model, bike type, #ukbikers #bikelife, and local: #hampshire #haylingisland #portsmouth #usedmotorbikes).
 ${tweak ? `\nEXTRA INSTRUCTIONS FROM THE DEALER (follow these): ${tweak}\n` : ''}
 Reply with ONLY a JSON object, no other text, in exactly this shape:
-{"attention_grabber": "...", "autotrader_description": "...", "website_title": "...", "website_description": "...", "facebook_post": "...", "instagram_caption": "..."}
+{"title": "...", "attention_grabber": "...", "advert": "...", "facebook_post": "...", "instagram_caption": "..."}
 Use \\n for line breaks inside the strings.`;
 }
 

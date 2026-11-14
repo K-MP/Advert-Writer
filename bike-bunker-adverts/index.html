@@ -211,8 +211,8 @@
     <label>Location <input id="s_location"></label>
     <label>Phone <span class="hint">used in website adverts only</span> <input id="s_phone"></label>
     <label>Website <input id="s_website"></label>
-    <label>Standard selling points <span class="hint">used in the website advert's "why buy from us"</span>
-      <textarea id="s_usps" rows="3"></textarea></label>
+    <label>Standard offer <span class="hint">one per line – what every bike gets and what's available (used in "Before Collection")</span>
+      <textarea id="s_usps" rows="7"></textarea></label>
     <div class="actions">
       <button id="diagBtn" type="button">Check connections</button>
       <button id="debugBtn" type="button">Show raw MotorDesk data</button>
@@ -250,9 +250,19 @@ const DROPDOWNS = [
   ['idealFor', 'Best suited to', ['Commuting', 'Touring', 'Weekend rides', 'Sports / track days', 'New riders', 'Adventure / green lanes', 'All-rounder']],
 ];
 
+const STANDARD_OFFER = 'Fresh oil & filter service before collection\n12 months MOT\nFull pre-delivery inspection\n3 months warranty\nPart exchange welcome\nFinance available\nDelivery available';
+const OLD_USPS = 'Every bike prepared and checked in our own workshop\nPart exchange welcome\nUK delivery available';
+
+// Extra typed fields shown with the dropdowns
+const TEXT_DETAILS = [
+  ['serviceStamps', 'Service stamps', 'e.g. 8'],
+  ['motExpiry', 'MOT expiry', 'e.g. 27/03/2027'],
+  ['majorWork', 'Recent major work', 'e.g. major service Dec 25, valves done'],
+];
+
 const DEFAULT_SETTINGS = {
   password: '', dealerName: 'The Bike Bunker', location: 'Hayling Island, Hampshire', phone: '',
-  website: 'bike-bunker.co.uk', usps: 'Every bike prepared and checked in our own workshop\nPart exchange welcome\nUK delivery available',
+  website: 'bike-bunker.co.uk', usps: STANDARD_OFFER,
 };
 
 const DEMO_STOCK = [
@@ -271,6 +281,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const keyFor = (b) => 'bike:' + (b.id || b.reg || (b.make + b.model));
 
 let settings = { ...DEFAULT_SETTINGS, ...store.get('settings', {}) };
+if (!settings.usps || settings.usps === OLD_USPS) settings.usps = STANDARD_OFFER;
 let stock = [];
 let manual = store.get('manualBikes', []);
 let current = null; // { bike, details, ad }
@@ -313,7 +324,7 @@ async function loadStock() {
     const { bikes } = await api('stock');
     stock = bikes;
     const drafts = bikes.filter((b) => /draft/i.test(b.status || '')).length;
-    $('modeTag').textContent = `Live · ${bikes.length} bikes from MotorDesk${drafts ? ` (${drafts} draft)` : ''}`; $('modeTag').className = 'tag live';
+    $('modeTag').textContent = `Live · ${bikes.length} bike${bikes.length === 1 ? "" : "s"} from MotorDesk${drafts ? ` (${drafts} draft)` : ''}`; $('modeTag').className = 'tag live';
     box.textContent = '';
   } catch (e) {
     stock = DEMO_STOCK;
@@ -365,7 +376,8 @@ function openBike(bike) {
   $('basics').innerHTML = BASICS.map(([k, label]) =>
     `<label>${label}<input data-b="${k}" value="${esc(current.bike[k] ?? '')}"></label>`).join('');
   $('dropdowns').innerHTML = DROPDOWNS.map(([k, label, opts]) =>
-    `<label>${label}<select data-d="${k}"><option value="">—</option>${opts.map((o) => `<option${current.details[k] === o ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select></label>`).join('');
+    `<label>${label}<select data-d="${k}"><option value="">—</option>${opts.map((o) => `<option${current.details[k] === o ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select></label>`).join('')
+    + TEXT_DETAILS.map(([k, label, ph]) => `<label>${label}<input data-d="${k}" placeholder="${esc(ph)}"></label>`).join('');
   document.querySelectorAll('#editor [data-d]').forEach((el) => {
     if (el.tagName !== 'SELECT' || el.dataset.d === 'tone') el.value = current.details[el.dataset.d] ?? (el.dataset.d === 'tone' ? 'enthusiastic' : '');
   });
@@ -420,8 +432,9 @@ function renderOutputs() {
   $('genBtn').textContent = ad ? 'Rewrite adverts & posts' : 'Write adverts & posts';
   if (!ad) return;
   const groups = [
-    ['AutoTrader', [['attention_grabber', 'Attention grabber', 30, 'chars', 1], ['autotrader_description', 'Description', null, 'words', 12]]],
-    ['Website', [['website_title', 'Title', null, 'chars', 1], ['website_description', 'Advert', null, 'words', 14]]],
+    ['Listing', [['title', 'Advert title / subtitle', 60, 'chars', 1], ['attention_grabber', 'AutoTrader attention grabber', 30, 'chars', 1]]],
+    ['Advert – AutoTrader & website', [['advert', 'Full advert', null, 'words', 26]]],
+    ['Older format', [['autotrader_description', 'AutoTrader description', null, 'words', 12], ['website_title', 'Website title', null, 'chars', 1], ['website_description', 'Website advert', null, 'words', 14]]],
     ['Social media', [['facebook_post', 'Facebook post', null, 'words', 9], ['instagram_caption', 'Instagram caption', null, 'words', 10]]],
   ];
   $('outputs').innerHTML = groups.map(([g, blocks]) => {
