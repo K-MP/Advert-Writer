@@ -5,7 +5,7 @@
 //   type "price"   -> market price check using Claude's web search
 
 import { getStore } from '@netlify/blobs';
-import { callClaude, extractJSON } from '../lib/claude.mjs';
+import { askForJSON } from '../lib/claude.mjs';
 import { advertPrompt, pricePrompt } from '../lib/prompts.mjs';
 
 export default async (req) => {
@@ -25,16 +25,14 @@ export default async (req) => {
 
   try {
     if (type === 'adverts') {
-      const text = await callClaude(advertPrompt(payload), { maxTokens: 3000 });
-      const ad = extractJSON(text);
+      const ad = await askForJSON(advertPrompt(payload), { maxTokens: 8000 });
       if (ad.attention_grabber && ad.attention_grabber.length > 30) {
         ad.attention_grabber_warning = `${ad.attention_grabber.length} characters - AutoTrader allows 30`;
       }
       return finish({ status: 'done', result: ad });
     }
     if (type === 'price') {
-      const text = await callClaude(pricePrompt(payload), { maxTokens: 4000, webSearch: true, maxSearches: 6 });
-      const price = extractJSON(text);
+      const price = await askForJSON(pricePrompt(payload), { maxTokens: 12000, webSearch: true, maxSearches: 6 });
       price.checkedAt = new Date().toISOString();
       return finish({ status: 'done', result: price });
     }
