@@ -213,6 +213,8 @@
     <label>Website <input id="s_website"></label>
     <label>Standard offer <span class="hint">one per line – what every bike gets and what's available (used in "Before Collection")</span>
       <textarea id="s_usps" rows="7"></textarea></label>
+    <label>Advert footer line <span class="hint">the last line of every advert</span>
+      <input id="s_footer"></label>
     <div class="actions">
       <button id="diagBtn" type="button">Check connections</button>
       <button id="debugBtn" type="button">Show raw MotorDesk data</button>
@@ -262,7 +264,7 @@ const TEXT_DETAILS = [
 
 const DEFAULT_SETTINGS = {
   password: '', dealerName: 'The Bike Bunker', location: 'Hayling Island, Hampshire', phone: '',
-  website: 'bike-bunker.co.uk', usps: STANDARD_OFFER,
+  website: 'bike-bunker.co.uk', usps: STANDARD_OFFER, footer: 'Part Exchange Welcome | Delivery Available',
 };
 
 const DEMO_STOCK = [
@@ -282,6 +284,7 @@ const keyFor = (b) => 'bike:' + (b.id || b.reg || (b.make + b.model));
 
 let settings = { ...DEFAULT_SETTINGS, ...store.get('settings', {}) };
 if (!settings.usps || settings.usps === OLD_USPS) settings.usps = STANDARD_OFFER;
+if (!settings.footer) settings.footer = DEFAULT_SETTINGS.footer;
 let stock = [];
 let manual = store.get('manualBikes', []);
 let current = null; // { bike, details, ad }
@@ -537,7 +540,7 @@ $('manualBtn').onclick = () => {
 };
 
 // ---------- Settings ----------
-const SKEYS = ['password', 'dealerName', 'location', 'phone', 'website', 'usps'];
+const SKEYS = ['password', 'dealerName', 'location', 'phone', 'website', 'usps', 'footer'];
 $('settingsBtn').onclick = () => { SKEYS.forEach((k) => $('s_' + k).value = settings[k] || ''); $('debugOut').hidden = true; $('diagOut').innerHTML = ''; $('settingsDlg').showModal(); };
 $('settingsCancel').onclick = () => $('settingsDlg').close();
 $('settingsSave').onclick = () => {
